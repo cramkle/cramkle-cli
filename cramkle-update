@@ -18,7 +18,7 @@ end
 # Returns an array containing the time the tools were updated and which version they are now at.
 #
 def get_tools_version_info
-  version = `git describe --exact-match 2> /dev/null`
+  version = `git describe --exact-match 2> /dev/null`.strip
 
   timestamp, sha1 = `git log -1 --pretty='%at,%h'`.strip.split(',')
 
