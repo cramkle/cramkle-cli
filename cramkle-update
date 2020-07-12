@@ -1,54 +1,63 @@
-#!/usr/bin/env ruby
+#!/usr/bin/env python3
 # Installs the latest version of these tools.
 
-require 'tmpdir'
-require 'shellwords'
+from tempfile import TemporaryDirectory
+from datetime import date
 
-SOURCE_REPO = 'git@github.com:cramkle/cramkle-cli.git'
-UPDATE_FAILED_MESSAGE = ''
+import pathlib
+import shlex
+import subprocess
+import os
+import stat
+
+SOURCE_REPO = "git@github.com:cramkle/cramkle-cli.git"
+UPDATE_FAILED_MESSAGE = ""
+
+
+def git(*args):
+    return subprocess.run(("git",) + args, text=True, capture_output=True)
+
 
 #
 # Gets the latest version of the tools and copies them into the current working directory.
 #
-def fetch_latest_code!
-  `git clone --quiet #{Shellwords.escape(SOURCE_REPO)} .`
-end
+def fetch_latest_code():
+    git("clone", "--quiet", shlex.quote(SOURCE_REPO), ".")
+
 
 #
 # Returns an array containing the time the tools were updated and which version they are now at.
 #
-def get_tools_version_info
-  version = `git describe --exact-match 2> /dev/null`.strip
+def get_tools_version_info():
+    version = git("describe", "--exact-match").stdout.strip()
 
-  timestamp, sha1 = `git log -1 --pretty='%at,%h'`.strip.split(',')
+    timestamp, sha1 = git("log", "-1", "--pretty=%at,%h").stdout.strip().split(",")
 
-  if version.empty?
-    version = sha1
-  end
+    if len(version) == 0:
+        version = sha1
 
-  [ Time.at(timestamp.to_i), version ]
-end
+    return [date.fromtimestamp(int(timestamp)), version]
 
-DESTINATION_DIR = File.dirname(__FILE__)
 
-unless File.stat(DESTINATION_DIR).writable?
-  puts "Looks like you don't have write permissions to #{DESTINATION_DIR}. Run this command to fix it and try again:"
-  puts "    sudo chown -R `whoami` #{DESTINATION_DIR}"
-  abort
-end
+DESTINATION_DIR = pathlib.Path(__file__).parent.absolute()
 
-Dir.mktmpdir  do |dir|
-  Dir.chdir dir do
+if not pathlib.Path(DESTINATION_DIR).is_dir():
+    print(
+        f"Looks like you don't have write permissions to {DESTINATION_DIR}. Run this command to fix it and try again:"
+    )
+    print(f"    sudo chown -R `whoami` {DESTINATION_DIR}")
+    exit(1)
 
-    fetch_latest_code!
-    `make install_quiet`
+with TemporaryDirectory() as tempdir:
+    os.chdir(tempdir)
 
-    if $?.exitstatus == 0
-      timestamp, version = get_tools_version_info
-      puts "Updated tools to #{version} (#{timestamp})"
-    else
-      puts "Eep, updating tools failed. :( #{UPDATE_FAILED_MESSAGE}"
-      abort
-    end
-  end
-end
+    fetch_latest_code()
+
+    code = subprocess.run("make install_quiet", shell=True).returncode
+
+    if code == 0:
+        timestamp, version = get_tools_version_info()
+        print(f"Updated tools to {version} ({timestamp})")
+    else:
+        print(f"Eep, updating tools failed. :( {UPDATE_FAILED_MESSAGE}")
+        exit(1)
