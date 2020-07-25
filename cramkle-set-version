@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+# Update the image version of a deployment.
+# @param <deploy_name> - Name of the deployment to update
+# @param <version> - Version of the image to update to
+
+import subprocess
+import sys
+import argparse
+
+def get_cli_args():
+    parser = argparse.ArgumentParser(description='Update the image version of a deployment.')
+
+    parser.add_argument('deploy_name', type=str)
+    parser.add_argument('version', type=str)
+
+    return parser.parse_args()
+
+def kubectl(*args):
+    return subprocess.run(('kubectl',) + args, text=True, capture_output=True)
+
+def set_version(deploy_name, version):
+    deployments = kubectl('get', 'deploy', '-o=jsonpath={.items[*][\'metadata.name\']}').stdout.strip().split(' ')
+
+    if deploy_name not in deployments:
+        print(f'Invalid deployment {deploy_name}.\n')
+        print(f'Available deployments in the current namespace are: {(", ".join(deployments))}')
+        exit(1)
+
+if __name__ == '__main__':
+    args = get_cli_args()
+
+    set_version(args.deploy_name, args.version)
