@@ -1,19 +1,29 @@
 #!/usr/bin/env python3
-# Run the k8s dashboard locally
+# Run the kubernetes dashboard locally
 
 import subprocess
+from base64 import b64decode
 
-def kubectl(*args):
-    return subprocess.run(('kubectl',) + args, text=True)
+def kubectl(subcommand):
+    return subprocess.run('kubectl ' + subcommand, capture_output=True, shell=True, encoding="utf-8").stdout
 
 def run_dashboard():
     print('Spinning up Kubernetes Dashboard at https://localhost:8080/')
     print('Press ^C to exit\n')
 
-    try:
-        kubectl('-n', 'kubernetes-dashboard', 'port-forward', 'svc/kubernetes-dashboard', '8080:443')
-    except KeyboardInterrupt:
-        exit(0)
+    token_name = kubectl(r'-n kubernetes-dashboard get serviceaccount admin-user -o=jsonpath="{.secrets[0].name}"')
+    token_value = b64decode(kubectl(r'-n kubernetes-dashboard get secret %s -o=jsonpath="{.data.token}"' % token_name)).decode('utf-8')
+
+    print(f'Login token: {token_value}\n')
+
+    process = subprocess.Popen('kubectl -n kubernetes-dashboard port-forward svc/kubernetes-dashboard 8080:443', shell=True, stdin=subprocess.PIPE)
+
+    while True:
+        try:
+            process.communicate(input=input())
+        except (KeyboardInterrupt, EOFError):
+            process.kill()
+            break
 
 if __name__ == '__main__':
     run_dashboard()
