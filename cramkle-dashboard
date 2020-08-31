@@ -8,13 +8,13 @@ def kubectl(subcommand):
     return subprocess.run('kubectl ' + subcommand, capture_output=True, shell=True, encoding="utf-8").stdout
 
 def run_dashboard():
-    print('Spinning up Kubernetes Dashboard at https://localhost:8080/')
-    print('Press ^C to exit\n')
-
     token_name = kubectl(r'-n kubernetes-dashboard get serviceaccount admin-user -o=jsonpath="{.secrets[0].name}"')
     token_value = b64decode(kubectl(r'-n kubernetes-dashboard get secret %s -o=jsonpath="{.data.token}"' % token_name)).decode('utf-8')
 
     print(f'Login token: {token_value}\n')
+
+    print('Spinning up Kubernetes Dashboard at https://localhost:8080/')
+    print('Press ^C to exit\n')
 
     process = subprocess.Popen('kubectl -n kubernetes-dashboard port-forward svc/kubernetes-dashboard 8080:443', shell=True, stdin=subprocess.PIPE)
 
